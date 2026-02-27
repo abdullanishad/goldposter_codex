@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Welcome, {{ username }}</h1>
+<p>You are logged in.</p>
+<p>Shop: <strong>{{ shop_name }}</strong></p>
+
+<h2>Generate Poster</h2>
+<form method="post" action="{{ url_for('generate') }}">
+  <p>Select Template</p>
+  {% if templates %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 12px;">
+      {% for template_name in templates %}
+        <label style="display: block; border: 1px solid #ddd; border-radius: 8px; padding: 8px; cursor: pointer;">
+          <input type="radio" name="template_name" value="{{ template_name }}" required />
+          <img
+            src="{{ url_for('static', filename='templates/' ~ template_name) }}"
+            alt="{{ template_name }}"
+            style="width: 100%; height: 120px; object-fit: cover; display: block; margin-top: 6px;"
+          />
+          <small>{{ template_name }}</small>
+        </label>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p>No templates available in static/templates/.</p>
+  {% endif %}
+  <input type="text" name="gold_price" placeholder="Gold Price" required />
+  <button type="submit">Generate Poster</button>
+</form>
+
+{% if generated_image %}
+  <h3>Generated Poster</h3>
+  <img
+    src="{{ url_for('static', filename='generated/' ~ generated_image) }}"
+    alt="Generated Jewellery Poster"
+    style="max-width: 100%; height: auto;"
+  />
+{% endif %}
+
+<form method="post" action="{{ url_for('logout') }}">
+  <button type="submit">Logout</button>
+</form>
+{% endblock %}
