@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+<h1>Admin Dashboard</h1>
+<p>Update shared gold prices applied to all generated posters.</p>
+
+<form method="post" action="{{ url_for('admin_dashboard') }}">
+  <input type="number" name="price_1g" step="0.01" min="0" placeholder="Gold Price 1g" value="{{ admin.gold_price_1g if admin and admin.gold_price_1g is not none else '' }}" required />
+  <input type="number" name="price_8g" step="0.01" min="0" placeholder="Gold Price 8g" value="{{ admin.gold_price_8g if admin and admin.gold_price_8g is not none else '' }}" required />
+  <button type="submit">Save Gold Prices</button>
+</form>
+
+<p><a href="{{ url_for('template_calibration.calibration_page') }}">Open Template Calibration Tool</a></p>
+<p><a href="{{ url_for('dashboard') }}">Back to Dashboard</a></p>
+{% endblock %}

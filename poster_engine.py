@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -8,6 +8,14 @@ SUPPORTED_EXTENSIONS: Tuple[str, ...] = (".png", ".jpg", ".jpeg", ".webp")
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 TEMPLATES_DIR = os.path.join(PROJECT_ROOT, "static", "templates")
 GENERATED_DIR = os.path.join(PROJECT_ROOT, "static", "generated")
+TEXT_FIELD_KEYS = (
+    "todays_date",
+    "price_1g",
+    "price_8g",
+    "address",
+    "whatsapp_number",
+    "social_handle",
+)
 
 
 def _get_template_files() -> list[str]:
@@ -28,16 +36,6 @@ def _get_template_files() -> list[str]:
 
 
 def load_template(template_name: str) -> Image.Image:
-    """
-    Load and return a specific poster template from static/templates.
-
-    Returns:
-        PIL.Image.Image: The opened template image.
-
-    Raises:
-        FileNotFoundError: If the templates directory or selected file does not exist.
-        ValueError: If no supported image files are found, or template_name is invalid.
-    """
     if not template_name or not str(template_name).strip():
         raise ValueError("template_name is required")
 
@@ -52,7 +50,6 @@ def load_template(template_name: str) -> Image.Image:
 
 
 def _load_font(size: int) -> ImageFont.ImageFont:
-    """Load a clean TrueType font with fallback to PIL default."""
     candidate_fonts = [
         "DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -67,116 +64,151 @@ def _load_font(size: int) -> ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
-def _centered_text_x(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, width: int) -> int:
-    left, _, right, _ = draw.textbbox((0, 0), text, font=font)
-    text_width = right - left
-    return max(0, (width - text_width) // 2)
-
-
 def _resolve_logo_path(logo_path: str) -> str:
     if os.path.isabs(logo_path):
         return logo_path
     return os.path.join(PROJECT_ROOT, logo_path)
 
 
-def generate_poster(
-    shop_name: str,
-    gold_price: str,
-    template_name: str,
-    logo_path: Optional[str] = None,
-) -> str:
-    """
-    Generate a jewellery poster using a selected template and save it to static/generated.
+def _validate_area(name: str, area: object) -> dict[str, float]:
+    if not isinstance(area, dict):
+        raise ValueError(f"Template not found in configuration: missing {name}")
 
-    Args:
-        shop_name: Shop display name.
-        gold_price: Gold price text to show in the center.
-        template_name: Template file name from static/templates.
-        logo_path: Optional absolute or project-relative logo file path.
+    parsed: dict[str, float] = {}
+    for key in ("x", "y", "width", "height"):
+        if key not in area or not isinstance(area[key], (int, float)):
+            raise ValueError(f"Template not found in configuration: invalid {name}.{key}")
+        parsed[key] = float(area[key])
 
-    Returns:
-        Absolute path to the generated poster image.
-    """
-    if not shop_name or not str(shop_name).strip():
-        raise ValueError("shop_name is required")
-    if not gold_price or not str(gold_price).strip():
-        raise ValueError("gold_price is required")
-    if not template_name or not str(template_name).strip():
-        raise ValueError("template_name is required")
+    if parsed["width"] <= 0 or parsed["height"] <= 0:
+        raise ValueError(f"Template not found in configuration: invalid {name} size")
+    if parsed["x"] < 0 or parsed["y"] < 0:
+        raise ValueError(f"Template not found in configuration: invalid {name} position")
+    if parsed["x"] + parsed["width"] > 1 or parsed["y"] + parsed["height"] > 1:
+        raise ValueError(f"Template not found in configuration: {name} out of bounds")
 
-    base_image = load_template(template_name).convert("RGBA")
-    width, height = base_image.size
-    min_dim = min(width, height)
+    return parsed
 
-    # Subtle dark overlay improves readability across bright template areas.
-    overlay_alpha = max(50, min(95, int(min_dim * 0.08)))
-    overlay = Image.new("RGBA", (width, height), (0, 0, 0, overlay_alpha))
-    base_image = Image.alpha_composite(base_image, overlay)
-    draw = ImageDraw.Draw(base_image)
 
-    raw_price = str(gold_price).strip()
-    numeric_candidate = "".join(ch for ch in raw_price if ch.isdigit() or ch == ".")
-    price_text = raw_price
+def _area_to_pixels(area: dict[str, float], img_width: int, img_height: int) -> tuple[int, int, int, int]:
+    x = int(img_width * area["x"])
+    y = int(img_height * area["y"])
+    width = int(img_width * area["width"])
+    height = int(img_height * area["height"])
+
+    width = max(1, min(width, img_width))
+    height = max(1, min(height, img_height))
+    x = max(0, min(x, img_width - width))
+    y = max(0, min(y, img_height - height))
+
+    return x, y, width, height
+
+
+def _fit_text_font(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    max_width: int,
+    max_height: int,
+    start_size: int = 160,
+    min_size: int = 10,
+) -> tuple[ImageFont.ImageFont, tuple[int, int, int, int]]:
+    for size in range(start_size, min_size - 1, -1):
+        font = _load_font(size)
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        if text_width <= max_width and text_height <= max_height:
+            return font, bbox
+
+    font = _load_font(min_size)
+    return font, draw.textbbox((0, 0), text, font=font)
+
+
+def _draw_centered_text(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    area_px: tuple[int, int, int, int],
+    color: tuple[int, int, int] = (255, 255, 255),
+    shadow_alpha: int = 120,
+) -> None:
+    x, y, width, height = area_px
+    font, bbox = _fit_text_font(
+        draw=draw,
+        text=text,
+        max_width=max(1, width - 6),
+        max_height=max(1, height - 4),
+    )
+
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+    text_x = int(x + ((width - text_width) / 2) - bbox[0])
+    text_y = int(y + ((height - text_height) / 2) - bbox[1])
+
+    draw.text((text_x + 2, text_y + 2), text, font=font, fill=(0, 0, 0, shadow_alpha))
+    draw.text((text_x, text_y), text, font=font, fill=color)
+
+
+def _format_price(raw_price: str) -> str:
+    raw = str(raw_price).strip()
+    if not raw:
+        return ""
+
+    numeric_candidate = "".join(ch for ch in raw if ch.isdigit() or ch == ".")
     if numeric_candidate:
         try:
             price_value = float(numeric_candidate)
             if price_value.is_integer():
-                price_text = f"₹ {int(price_value):,} / gram"
-            else:
-                price_text = f"₹ {price_value:,.2f} / gram"
+                return f"₹ {int(price_value):,}"
+            return f"₹ {price_value:,.2f}"
         except ValueError:
-            price_text = f"₹ {raw_price} / gram" if "/ gram" not in raw_price.lower() else raw_price
-    elif "/ gram" not in raw_price.lower():
-        price_text = f"₹ {raw_price} / gram"
+            return raw
+    return raw
 
-    shop_text = str(shop_name).strip()
-    price_font = _load_font(max(48, min_dim // 11))
-    shop_font = _load_font(max(30, min_dim // 24))
-    price_shadow_offset = max(2, min_dim // 270)
-    shop_shadow_offset = max(1, min_dim // 320)
-    line_gap = max(18, min_dim // 30)
-    vertical_padding = max(56, int(height * 0.12))
 
-    price_bbox = draw.textbbox((0, 0), price_text, font=price_font)
-    shop_bbox = draw.textbbox((0, 0), shop_text, font=shop_font)
-    price_width = price_bbox[2] - price_bbox[0]
-    price_height = price_bbox[3] - price_bbox[1]
-    shop_width = shop_bbox[2] - shop_bbox[0]
-    shop_height = shop_bbox[3] - shop_bbox[1]
-    block_height = price_height + line_gap + shop_height
-    block_top = max(vertical_padding, (height - block_height) // 2)
+def generate_poster(
+    template_name: str,
+    template_data: dict[str, Any],
+    todays_date: str,
+    price_1g: str,
+    price_8g: str,
+    address: str,
+    whatsapp_number: str,
+    social_handle: str,
+    logo_path: Optional[str] = None,
+) -> str:
+    if not template_name or not str(template_name).strip():
+        raise ValueError("template_name is required")
+    if template_data is None:
+        raise ValueError("Template not found in configuration")
 
-    price_x = int((width - price_width) / 2 - price_bbox[0])
-    shop_x = int((width - shop_width) / 2 - shop_bbox[0])
-    price_y = int(block_top - price_bbox[1])
-    shop_y = int(block_top + price_height + line_gap - shop_bbox[1])
+    selected_template = os.path.basename(str(template_name).strip())
 
-    draw.text(
-        (price_x + price_shadow_offset, price_y + price_shadow_offset),
-        price_text,
-        font=price_font,
-        fill=(0, 0, 0, 170),
-    )
-    draw.text(
-        (price_x, price_y),
-        price_text,
-        font=price_font,
-        fill=(248, 232, 194, 255),
-        stroke_width=max(1, min_dim // 500),
-        stroke_fill=(60, 45, 20, 200),
-    )
-    draw.text(
-        (shop_x + shop_shadow_offset, shop_y + shop_shadow_offset),
-        shop_text,
-        font=shop_font,
-        fill=(0, 0, 0, 140),
-    )
-    draw.text(
-        (shop_x, shop_y),
-        shop_text,
-        font=shop_font,
-        fill=(255, 255, 255, 245),
-    )
+    areas: dict[str, tuple[int, int, int, int]] = {}
+    base_image = load_template(selected_template).convert("RGBA")
+    draw = ImageDraw.Draw(base_image)
+    img_width, img_height = base_image.size
+
+    for field in (*TEXT_FIELD_KEYS, "logo_area"):
+        areas[field] = _area_to_pixels(
+            _validate_area(field, template_data.get(field)),
+            img_width,
+            img_height,
+        )
+
+    text_values = {
+        "todays_date": str(todays_date).strip(),
+        "price_1g": _format_price(price_1g),
+        "price_8g": _format_price(price_8g),
+        "address": str(address).strip(),
+        "whatsapp_number": str(whatsapp_number).strip(),
+        "social_handle": str(social_handle).strip(),
+    }
+
+    for field in TEXT_FIELD_KEYS:
+        value = text_values[field]
+        if not value:
+            continue
+        _draw_centered_text(draw, value, areas[field])
 
     if logo_path:
         resolved_logo_path = _resolve_logo_path(logo_path)
@@ -184,14 +216,9 @@ def generate_poster(
             raise FileNotFoundError(f"Logo file not found: {resolved_logo_path}")
 
         logo_image = Image.open(resolved_logo_path).convert("RGBA")
-        max_logo_width = max(90, int(width * 0.18))
-        max_logo_height = max(90, int(height * 0.18))
-        logo_image.thumbnail((max_logo_width, max_logo_height), Image.Resampling.LANCZOS)
-
-        margin = max(24, int(min_dim * 0.04))
-        logo_x = width - logo_image.width - margin
-        logo_y = margin
-        base_image.paste(logo_image, (logo_x, logo_y), logo_image)
+        logo_x, logo_y, logo_width, logo_height = areas["logo_area"]
+        logo_image = logo_image.resize((int(logo_width), int(logo_height)), Image.Resampling.LANCZOS)
+        base_image.paste(logo_image, (int(logo_x), int(logo_y)), logo_image)
 
     os.makedirs(GENERATED_DIR, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")

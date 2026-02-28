@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Profile{% endblock %}
+{% block content %}
+<h1>Profile</h1>
+<p>Set your shop details once. These will be used for every poster.</p>
+
+<form method="post" enctype="multipart/form-data">
+  <input type="text" name="shop_name" placeholder="Shop Name" value="{{ user.shop_name or '' }}" required />
+  <input type="text" name="address" placeholder="Address" value="{{ user.address or '' }}" required />
+  <input type="text" name="whatsapp_number" placeholder="WhatsApp Number" value="{{ user.whatsapp_number or '' }}" required />
+  <input type="text" name="social_handle" placeholder="Social Handle" value="{{ user.social_handle or '' }}" required />
+
+  {% if user.logo_path %}
+    <p>Current logo:</p>
+    <img src="/{{ user.logo_path }}" alt="Logo" style="max-width: 140px; height: auto; display: block; margin-bottom: 8px;" />
+  {% endif %}
+  <input type="file" name="logo" accept=".png,.jpg,.jpeg,.webp" {% if not user.logo_path %}required{% endif %} />
+
+  <button type="submit">Save Profile</button>
+</form>
+
+{% if is_admin %}
+  <p><a href="{{ url_for('admin_dashboard') }}">Go to Admin Dashboard</a></p>
+{% endif %}
+<p><a href="{{ url_for('dashboard') }}">Back to Dashboard</a></p>
+{% endblock %}

@@ -2,11 +2,9 @@
 {% block title %}Sign Up{% endblock %}
 {% block content %}
 <h1>Create Account</h1>
-<form method="post" enctype="multipart/form-data">
+<form method="post">
   <input type="text" name="username" placeholder="Username" required />
   <input type="password" name="password" placeholder="Password" required />
-  <input type="text" name="shop_name" placeholder="Shop Name" required />
-  <input type="file" name="logo" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" />
   <button type="submit">Sign Up</button>
 </form>
 <p>Already have an account? <a href="{{ url_for('login') }}">Log in</a></p>
