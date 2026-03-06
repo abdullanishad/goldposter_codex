@@ -5,4 +5,5 @@ users.db
 instance/
 static/generated/
 static/uploads/
+static/templates/
 .env

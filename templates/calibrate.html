@@ -150,6 +150,16 @@
         white-space: normal;
         word-break: break-word;
       }
+
+      .resize-handle[data-corner="nw"],
+      .resize-handle[data-corner="se"] {
+        cursor: nwse-resize;
+      }
+
+      .resize-handle[data-corner="ne"],
+      .resize-handle[data-corner="sw"] {
+        cursor: nesw-resize;
+      }
     </style>
   {% elif templates %}
     <section class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">

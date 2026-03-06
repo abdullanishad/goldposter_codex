@@ -7,7 +7,8 @@ from datetime import datetime
 from functools import wraps
 from uuid import uuid4
 
-from flask import Flask, abort, flash, redirect, render_template, request, url_for
+from dotenv import load_dotenv
+from flask import Flask, abort, flash, redirect, render_template, request, send_file, url_for
 from flask_login import LoginManager, current_user, login_required, login_user, logout_user
 from sqlalchemy import inspect, text
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -18,6 +19,8 @@ from models import Admin, Template, User, db
 from poster_engine import generate_poster
 from routes.template_calibration import create_template_calibration_blueprint
 from storage import storage
+
+load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_PATH = os.path.join(BASE_DIR, "users.db")
@@ -75,6 +78,16 @@ def admin_required(view_func):
 
 
 def list_template_names() -> list[str]:
+    if storage.s3 and storage.bucket_name:
+        response = storage.s3.list_objects_v2(Bucket=storage.bucket_name)
+        contents = response.get("Contents", [])
+        return sorted(
+            os.path.basename(item["Key"])
+            for item in contents
+            if item.get("Key")
+            and os.path.splitext(item["Key"])[1].lower() in ALLOWED_TEMPLATE_EXTENSIONS
+        )
+
     if not os.path.isdir(TEMPLATES_DIR):
         return []
     return sorted(
@@ -648,9 +661,11 @@ def admin_templates():
             flash("Template must be PNG, JPG, JPEG, or WEBP.", "danger")
             return redirect(url_for("admin_templates"))
 
-        os.makedirs(TEMPLATES_DIR, exist_ok=True)
-        save_path = os.path.join(TEMPLATES_DIR, filename)
-        template_file.save(save_path)
+        storage.upload_file(
+            template_file.stream,
+            filename,
+            template_file.mimetype or "application/octet-stream",
+        )
 
         existing = Template.query.filter_by(file_name=filename).first()
         if existing:
@@ -854,7 +869,13 @@ def social_handle_value(handle: str, shop_name: str) -> str:
 @app.route("/download/<path:filename>", methods=["GET"])
 @login_required
 def download_generated_poster(filename):
-    return redirect(storage.get_url(filename))
+    file_buffer = storage.get_file_bytes(filename)
+    return send_file(
+        file_buffer,
+        as_attachment=True,
+        download_name=request.args.get("download_name", "poster.png"),
+        mimetype="image/png",
+    )
 
 
 @app.route("/logout", methods=["POST", "GET"])

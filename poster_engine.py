@@ -28,6 +28,13 @@ DEFAULT_FONT_FILENAME = "default.ttf"
 LOGGER = logging.getLogger(__name__)
 
 
+def _open_local_image(object_name: str) -> Image.Image:
+    local_path = os.path.join(PROJECT_ROOT, str(object_name).lstrip("/"))
+    if not os.path.isfile(local_path):
+        raise FileNotFoundError(f"Local development file not found: {object_name}")
+    return Image.open(local_path).convert("RGBA")
+
+
 def load_template(template_name: str) -> Image.Image:
     if not template_name or not str(template_name).strip():
         raise ValueError("template_name is required")
@@ -38,10 +45,9 @@ def load_template(template_name: str) -> Image.Image:
         template_bytes = storage.get_file_bytes(selected_name)
         return Image.open(template_bytes).convert("RGBA")
     except Exception:
-        template_path = os.path.join(TEMPLATES_DIR, selected_name)
-        if not os.path.isfile(template_path):
-            raise FileNotFoundError(f"Template not found in R2 or local templates: {selected_name}")
-        return Image.open(template_path).convert("RGBA")
+        if storage.s3:
+            raise FileNotFoundError(f"Template not found in R2: {selected_name}")
+        return _open_local_image(os.path.join("static", "templates", selected_name))
 
 
 def load_font(area: dict[str, Any], size: int) -> ImageFont.ImageFont:
@@ -66,7 +72,9 @@ def _load_logo_image(logo_path: str) -> Image.Image:
         logo_bytes = storage.get_file_bytes(logo_path)
         return Image.open(logo_bytes).convert("RGBA")
     except Exception as exc:
-        raise FileNotFoundError(f"Logo could not be fetched from R2: {logo_path}") from exc
+        if storage.s3:
+            raise FileNotFoundError(f"Logo not found in R2: {logo_path}") from exc
+        return _open_local_image(logo_path)
 
 
 def _validate_area(name: str, area: object) -> dict[str, float]:

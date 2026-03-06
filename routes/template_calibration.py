@@ -5,6 +5,7 @@ from flask import Blueprint, flash, jsonify, redirect, render_template, request,
 from werkzeug.utils import secure_filename
 
 from services.template_config_store import TemplateConfigStore
+from storage import storage
 
 
 ALLOWED_TEMPLATE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
@@ -166,9 +167,11 @@ def create_template_calibration_blueprint(
             flash("Template must be PNG, JPG, or JPEG.", "danger")
             return redirect(url_for("template_calibration.calibration_page"))
 
-        os.makedirs(templates_dir, exist_ok=True)
-        save_path = os.path.join(templates_dir, filename)
-        template_file.save(save_path)
+        storage.upload_file(
+            template_file.stream,
+            filename,
+            template_file.mimetype or "application/octet-stream",
+        )
 
         flash("Template uploaded successfully.", "success")
         return redirect(url_for("template_calibration.calibration_page", template=filename))
