@@ -1,9 +1,10 @@
-import os
 import logging
+import os
 from io import BytesIO
 from typing import Any, Optional, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
+
 from storage import storage
 
 SUPPORTED_EXTENSIONS: Tuple[str, ...] = (".png", ".jpg", ".jpeg", ".webp")
@@ -27,23 +28,6 @@ DEFAULT_FONT_FILENAME = "default.ttf"
 LOGGER = logging.getLogger(__name__)
 
 
-def _get_template_files() -> list[str]:
-    if not os.path.isdir(TEMPLATES_DIR):
-        raise FileNotFoundError(f"Template directory not found: {TEMPLATES_DIR}")
-
-    template_files = [
-        os.path.join(TEMPLATES_DIR, filename)
-        for filename in os.listdir(TEMPLATES_DIR)
-        if filename.lower().endswith(SUPPORTED_EXTENSIONS)
-        and os.path.isfile(os.path.join(TEMPLATES_DIR, filename))
-    ]
-
-    if not template_files:
-        raise ValueError(f"No template images found in: {TEMPLATES_DIR}")
-
-    return template_files
-
-
 def load_template(template_name: str) -> Image.Image:
     if not template_name or not str(template_name).strip():
         raise ValueError("template_name is required")
@@ -51,12 +35,13 @@ def load_template(template_name: str) -> Image.Image:
     selected_name = os.path.basename(str(template_name).strip())
 
     try:
-        return Image.open(storage.get_file_bytes(f"templates/{selected_name}"))
+        template_bytes = storage.get_file_bytes(selected_name)
+        return Image.open(template_bytes).convert("RGBA")
     except Exception:
         template_path = os.path.join(TEMPLATES_DIR, selected_name)
         if not os.path.isfile(template_path):
-            raise FileNotFoundError(f"Template not found: {selected_name}")
-        return Image.open(template_path)
+            raise FileNotFoundError(f"Template not found in R2 or local templates: {selected_name}")
+        return Image.open(template_path).convert("RGBA")
 
 
 def load_font(area: dict[str, Any], size: int) -> ImageFont.ImageFont:
@@ -76,20 +61,12 @@ def load_font(area: dict[str, Any], size: int) -> ImageFont.ImageFont:
         return ImageFont.load_default()
 
 
-def _resolve_logo_path(logo_path: str) -> str:
-    if os.path.isabs(logo_path):
-        return logo_path
-    return os.path.join(PROJECT_ROOT, logo_path)
-
-
 def _load_logo_image(logo_path: str) -> Image.Image:
     try:
-        return Image.open(storage.get_file_bytes(logo_path)).convert("RGBA")
-    except Exception:
-        resolved_logo_path = _resolve_logo_path(logo_path)
-        if not os.path.isfile(resolved_logo_path):
-            raise FileNotFoundError(f"Logo file not found: {resolved_logo_path}")
-        return Image.open(resolved_logo_path).convert("RGBA")
+        logo_bytes = storage.get_file_bytes(logo_path)
+        return Image.open(logo_bytes).convert("RGBA")
+    except Exception as exc:
+        raise FileNotFoundError(f"Logo could not be fetched from R2: {logo_path}") from exc
 
 
 def _validate_area(name: str, area: object) -> dict[str, float]:
@@ -274,7 +251,6 @@ def wrap_text_to_two_lines(
                 lines.append(current_line)
                 current_line = word
             else:
-                # Fallback for a single very long word.
                 lines.append(word)
                 current_line = ""
 
@@ -302,7 +278,6 @@ def _draw_wrapped_address(
 
     best_font: ImageFont.ImageFont | None = None
     best_lines: list[str] = []
-    best_line_heights: list[int] = []
     best_total_height = 0
 
     max_size = _to_font_size(style.get("max_font_size"), DEFAULT_MAX_FONT_SIZE)
@@ -318,7 +293,6 @@ def _draw_wrapped_address(
             font_size -= FONT_SIZE_STEP
             continue
 
-        line_heights: list[int] = []
         total_height = 0
         widest_line = 0
 
@@ -327,7 +301,6 @@ def _draw_wrapped_address(
             line_width = bbox[2] - bbox[0]
             line_height = bbox[3] - bbox[1]
             widest_line = max(widest_line, line_width)
-            line_heights.append(line_height)
             total_height += line_height
 
         total_height += line_spacing * (len(lines) - 1)
@@ -335,7 +308,6 @@ def _draw_wrapped_address(
         if widest_line <= width and total_height <= height:
             best_font = font
             best_lines = lines
-            best_line_heights = line_heights
             best_total_height = total_height
             break
         font_size -= FONT_SIZE_STEP
@@ -345,29 +317,28 @@ def _draw_wrapped_address(
         best_lines = wrap_text_to_two_lines(draw, clean_text, best_font, max(1, width - 6))
         if not best_lines:
             return
-        best_line_heights = []
+
         best_total_height = 0
         for line in best_lines:
             bbox = draw.textbbox((0, 0), line, font=best_font)
-            line_height = bbox[3] - bbox[1]
-            best_line_heights.append(line_height)
-            best_total_height += line_height
+            best_total_height += bbox[3] - bbox[1]
         best_total_height += line_spacing * (len(best_lines) - 1)
 
     current_y = y + max(0, (height - best_total_height) // 2)
 
-    for index, line in enumerate(best_lines):
+    for line in best_lines:
         bbox = draw.textbbox((0, 0), line, font=best_font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
+
         if style["alignment"] == "left":
             text_x = x - bbox[0]
         elif style["alignment"] == "right":
             text_x = x + width - text_width - bbox[0]
         else:
             text_x = x + max(0, (width - text_width) // 2) - bbox[0]
-        text_y = current_y - bbox[1]
 
+        text_y = current_y - bbox[1]
         draw.text((text_x + 2, text_y + 2), line, font=best_font, fill=(0, 0, 0, shadow_alpha))
         draw.text((text_x, text_y), line, font=best_font, fill=style["font_color"])
 
@@ -394,7 +365,7 @@ def generate_poster(
 
     areas: dict[str, tuple[int, int, int, int]] = {}
     text_styles: dict[str, dict[str, Any]] = {}
-    base_image = load_template(selected_template).convert("RGBA")
+    base_image = load_template(selected_template)
     draw = ImageDraw.Draw(base_image)
     img_width, img_height = base_image.size
 
@@ -444,6 +415,6 @@ def generate_poster(
         base_image.paste(logo_image, (int(logo_x), int(logo_y)), logo_image)
 
     img_io = BytesIO()
-    base_image.save(img_io, format="PNG")
+    base_image.save(img_io, "PNG")
     img_io.seek(0)
     return img_io
