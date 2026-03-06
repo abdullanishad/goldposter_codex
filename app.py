@@ -832,7 +832,7 @@ def generate():
 
     generated_filename = f"poster_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.png"
     generated_key = f"generated/{generated_filename}"
-    storage.upload_file(io.BytesIO(generated_bytes), generated_key, "image/png")
+    storage.upload_file(generated_bytes, generated_key, "image/png")
     generated_image_url = storage.get_url(generated_key)
     shop_slug = secure_filename(current_user.shop_name or current_user.username).replace("-", "_").lower() or "poster"
     download_name = f"{shop_slug}_{datetime.now().strftime('%Y%m%d')}.png"
