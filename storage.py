@@ -91,5 +91,12 @@ class R2Storage:
 
         return f"/static/{clean_name}"
 
+    def delete_file(self, object_name: str) -> None:
+        if not self.bucket_name:
+            raise RuntimeError("R2_BUCKET_NAME is not configured.")
+        if not self.s3:
+            return
+        self.s3.delete_object(Bucket=self.bucket_name, Key=object_name)
+
 
 storage = R2Storage()

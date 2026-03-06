@@ -376,7 +376,13 @@ def _ensure_template_rows_exist() -> None:
         except (OSError, json.JSONDecodeError):
             config_data = {}
 
-    for file_name in list_template_names():
+    current_template_names = set(list_template_names())
+
+    orphaned_templates = Template.query.filter(~Template.file_name.in_(current_template_names)).all() if current_template_names else Template.query.all()
+    for orphaned_template in orphaned_templates:
+        db.session.delete(orphaned_template)
+
+    for file_name in sorted(current_template_names):
         existing = Template.query.filter_by(file_name=file_name).first()
         if existing is not None:
             if not existing.category:
@@ -730,6 +736,22 @@ def edit_admin_template(template_id: int):
     template.logo_y = logo_y
     db.session.commit()
     flash("Template updated successfully.", "success")
+    return redirect(url_for("admin_templates"))
+
+
+@app.route("/admin/templates/<int:template_id>/delete", methods=["POST"])
+@login_required
+@admin_required
+def delete_admin_template(template_id: int):
+    template = db.session.get(Template, template_id)
+    if template is None:
+        flash("Template not found.", "danger")
+        return redirect(url_for("admin_templates"))
+
+    storage.delete_file(template.file_name)
+    db.session.delete(template)
+    db.session.commit()
+    flash("Template deleted successfully.", "success")
     return redirect(url_for("admin_templates"))
 
 
