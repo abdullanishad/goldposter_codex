@@ -78,23 +78,16 @@ def admin_required(view_func):
 
 
 def list_template_names() -> list[str]:
-    if storage.s3 and storage.bucket_name:
-        response = storage.s3.list_objects_v2(Bucket=storage.bucket_name)
-        contents = response.get("Contents", [])
-        return sorted(
-            os.path.basename(item["Key"])
-            for item in contents
-            if item.get("Key")
-            and os.path.splitext(item["Key"])[1].lower() in ALLOWED_TEMPLATE_EXTENSIONS
-        )
-
-    if not os.path.isdir(TEMPLATES_DIR):
+    if not storage.s3 or not storage.bucket_name:
         return []
+
+    response = storage.s3.list_objects_v2(Bucket=storage.bucket_name)
+    contents = response.get("Contents", [])
     return sorted(
-        filename
-        for filename in os.listdir(TEMPLATES_DIR)
-        if os.path.isfile(os.path.join(TEMPLATES_DIR, filename))
-        and os.path.splitext(filename)[1].lower() in ALLOWED_TEMPLATE_EXTENSIONS
+        os.path.basename(item["Key"])
+        for item in contents
+        if item.get("Key")
+        and os.path.splitext(item["Key"])[1].lower() in ALLOWED_TEMPLATE_EXTENSIONS
     )
 
 
@@ -377,30 +370,34 @@ def _ensure_template_rows_exist() -> None:
             config_data = {}
 
     current_template_names = set(list_template_names())
+    existing_templates = {template.file_name: template for template in Template.query.all()}
 
-    orphaned_templates = Template.query.filter(~Template.file_name.in_(current_template_names)).all() if current_template_names else Template.query.all()
-    for orphaned_template in orphaned_templates:
+    orphaned_template_names = set(existing_templates) - current_template_names
+    for orphaned_template_name in orphaned_template_names:
+        orphaned_template = existing_templates[orphaned_template_name]
         db.session.delete(orphaned_template)
 
+    new_template_names = current_template_names - set(existing_templates)
     for file_name in sorted(current_template_names):
-        existing = Template.query.filter_by(file_name=file_name).first()
+        existing = existing_templates.get(file_name)
         if existing is not None:
             if not existing.category:
                 existing.category = "General"
             continue
 
-        template_config = config_data.get(file_name)
-        category = "General"
-        if isinstance(template_config, dict):
-            category = _normalize_template_category(template_config.get("category"))
+        if file_name in new_template_names:
+            template_config = config_data.get(file_name)
+            category = "General"
+            if isinstance(template_config, dict):
+                category = _normalize_template_category(template_config.get("category"))
 
-        db.session.add(
-            Template(
-                name=os.path.splitext(file_name)[0],
-                file_name=file_name,
-                category=category,
+            db.session.add(
+                Template(
+                    name=os.path.splitext(file_name)[0],
+                    file_name=file_name,
+                    category=category,
+                )
             )
-        )
 
 
 def _is_postgresql_database() -> bool:
