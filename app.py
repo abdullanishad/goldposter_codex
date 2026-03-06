@@ -821,7 +821,7 @@ def generate():
             address=current_user.address,
             whatsapp_number=current_user.whatsapp_number,
             social_handle=social_handle_value(current_user.social_handle, current_user.shop_name),
-            logo_path=storage.get_url(current_user.logo_path),
+            logo_path=current_user.logo_path,
         )
     except (FileNotFoundError, ValueError) as exc:
         flash(str(exc), "danger")
