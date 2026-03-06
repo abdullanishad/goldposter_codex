@@ -1,0 +1,35 @@
+{% extends "app_base.html" %}
+{% block title %}Templates{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Template List</h1>
+
+<form method="GET" action="{{ url_for('template_list') }}" class="mb-4 flex gap-2 items-center">
+  <label for="category" class="text-sm font-medium">Category</label>
+  <select id="category" name="category" class="border border-slate-300 rounded-lg px-3 py-2">
+    <option value="">All</option>
+    {% for category in categories %}
+      <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="px-4 py-2 rounded-lg bg-black text-white">Filter</button>
+</form>
+
+{% if templates %}
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    {% for template in templates %}
+      <article class="bg-white border border-slate-200 rounded-xl p-3">
+        <img
+          src="{{ url_for('static', filename='templates/' ~ template.file_name) }}"
+          alt="{{ template.name }}"
+          class="w-full h-40 object-cover rounded-lg mb-3"
+        >
+        <h2 class="font-semibold">{{ template.name }}</h2>
+        <p class="text-sm text-slate-600">File: {{ template.file_name }}</p>
+        <p class="text-sm text-slate-600">Category: {{ template.category }}</p>
+      </article>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="text-slate-600">No templates found for this category.</p>
+{% endif %}
+{% endblock %}

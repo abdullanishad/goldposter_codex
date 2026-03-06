@@ -1,0 +1,116 @@
+{% extends "admin/base.html" %}
+{% block title %}Manage Templates{% endblock %}
+{% block admin_content %}
+<h1 class="h3 mb-4">Manage Templates</h1>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h2 class="h5 mb-3">Add Template</h2>
+    <form method="POST" action="{{ url_for('admin_templates') }}" enctype="multipart/form-data" class="row g-3">
+      <div class="col-12 col-md-3">
+        <label class="form-label">Template Name</label>
+        <input type="text" name="name" class="form-control form-control-lg" required>
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label">Template File</label>
+        <input type="file" name="template_image" accept=".png,.jpg,.jpeg,.webp" class="form-control form-control-lg" required>
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label">Category</label>
+        <select name="category" class="form-select form-select-lg">
+          {% for category in categories %}
+            <option value="{{ category }}">{{ category }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12">
+        <h3 class="h6 mb-1">Style Controls</h3>
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label">Font Size</label>
+        <input type="number" name="font_size" class="form-control form-control-lg" min="1">
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label">Font Color</label>
+        <input type="color" name="font_color" class="form-control form-control-color form-control-lg" value="#ffffff">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label">Text Position X</label>
+        <input type="number" name="text_x" class="form-control form-control-lg">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label">Text Position Y</label>
+        <input type="number" name="text_y" class="form-control form-control-lg">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label">Logo Position X</label>
+        <input type="number" name="logo_x" class="form-control form-control-lg">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label">Logo Position Y</label>
+        <input type="number" name="logo_y" class="form-control form-control-lg">
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-dark btn-lg w-100 w-md-auto">Save Template</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h2 class="h5 mb-3">Existing Templates</h2>
+    <h3 class="h6 mb-3">Style Controls</h3>
+    <div class="row g-3">
+      {% for template in templates %}
+        <div class="col-12">
+          <form method="POST" action="{{ url_for('edit_admin_template', template_id=template.id) }}" class="row g-2 border rounded p-2">
+            <div class="col-12 col-md-3">
+              <input type="text" name="name" value="{{ template.name }}" class="form-control" required>
+            </div>
+            <div class="col-12 col-md-2">
+              <input type="text" value="{{ template.file_name }}" class="form-control" readonly>
+            </div>
+            <div class="col-12 col-md-2">
+              <select name="category" class="form-select">
+                {% for category in categories %}
+                  <option value="{{ category }}" {% if template.category == category %}selected{% endif %}>{{ category }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6 col-md-1">
+              <label class="form-label d-md-none">Font Size</label>
+              <input type="number" name="font_size" value="{{ template.font_size if template.font_size is not none else '' }}" class="form-control" min="1" placeholder="Size">
+            </div>
+            <div class="col-6 col-md-1">
+              <label class="form-label d-md-none">Font Color</label>
+              <input type="color" name="font_color" value="{{ template.font_color if template.font_color else '#ffffff' }}" class="form-control form-control-color">
+            </div>
+            <div class="col-6 col-md-1">
+              <label class="form-label d-md-none">Text Position X</label>
+              <input type="number" name="text_x" value="{{ template.text_x if template.text_x is not none else '' }}" class="form-control" placeholder="Text X">
+            </div>
+            <div class="col-6 col-md-1">
+              <label class="form-label d-md-none">Text Position Y</label>
+              <input type="number" name="text_y" value="{{ template.text_y if template.text_y is not none else '' }}" class="form-control" placeholder="Text Y">
+            </div>
+            <div class="col-6 col-md-1">
+              <label class="form-label d-md-none">Logo Position X</label>
+              <input type="number" name="logo_x" value="{{ template.logo_x if template.logo_x is not none else '' }}" class="form-control" placeholder="Logo X">
+            </div>
+            <div class="col-6 col-md-1">
+              <label class="form-label d-md-none">Logo Position Y</label>
+              <input type="number" name="logo_y" value="{{ template.logo_y if template.logo_y is not none else '' }}" class="form-control" placeholder="Logo Y">
+            </div>
+            <div class="col-12 col-md-2">
+              <button type="submit" class="btn btn-outline-dark w-100">Update</button>
+            </div>
+          </form>
+        </div>
+      {% else %}
+        <div class="col-12 text-muted">No templates found.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

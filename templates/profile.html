@@ -1,26 +1,88 @@
-{% extends "base.html" %}
+{% extends "app_base.html" %}
 {% block title %}Profile{% endblock %}
+
 {% block content %}
-<h1>Profile</h1>
-<p>Set your shop details once. These will be used for every poster.</p>
+<div class="max-w-3xl mx-auto mt-10">
 
-<form method="post" enctype="multipart/form-data">
-  <input type="text" name="shop_name" placeholder="Shop Name" value="{{ user.shop_name or '' }}" required />
-  <input type="text" name="address" placeholder="Address" value="{{ user.address or '' }}" required />
-  <input type="text" name="whatsapp_number" placeholder="WhatsApp Number" value="{{ user.whatsapp_number or '' }}" required />
-  <input type="text" name="social_handle" placeholder="Social Handle" value="{{ user.social_handle or '' }}" required />
+  <div class="bg-white shadow-lg rounded-2xl p-8">
 
-  {% if user.logo_path %}
-    <p>Current logo:</p>
-    <img src="/{{ user.logo_path }}" alt="Logo" style="max-width: 140px; height: auto; display: block; margin-bottom: 8px;" />
-  {% endif %}
-  <input type="file" name="logo" accept=".png,.jpg,.jpeg,.webp" {% if not user.logo_path %}required{% endif %} />
+    <h1 class="text-3xl font-bold mb-2">Shop Profile</h1>
+    <p class="text-gray-500 mb-6">
+      Set your shop details once. These will automatically appear on every poster.
+    </p>
 
-  <button type="submit">Save Profile</button>
-</form>
+    <form method="POST" enctype="multipart/form-data" class="space-y-5">
 
-{% if is_admin %}
-  <p><a href="{{ url_for('admin_dashboard') }}">Go to Admin Dashboard</a></p>
-{% endif %}
-<p><a href="{{ url_for('dashboard') }}">Back to Dashboard</a></p>
+      <div>
+        <label class="block text-sm font-semibold mb-1">Shop Name</label>
+        <input type="text" name="shop_name"
+        value="{{ user.shop_name or '' }}"
+        required
+        class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-yellow-400 outline-none">
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold mb-1">Address</label>
+        <input type="text" name="address"
+        value="{{ user.address or '' }}"
+        required
+        class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-yellow-400 outline-none">
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold mb-1">Phone</label>
+        <input type="text" name="phone"
+        value="{{ user.whatsapp_number or '' }}"
+        required
+        class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-yellow-400 outline-none">
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold mb-1">Social Handle</label>
+        <input type="text" name="social"
+        value="{{ user.social_handle or '' }}"
+        required
+        class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-yellow-400 outline-none">
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold mb-2">Shop Logo</label>
+
+        {% if user.logo_path %}
+        <img src="/{{ user.logo_path }}"
+        class="w-32 mb-3 rounded-lg shadow">
+        {% endif %}
+
+        <input type="file" name="logo"
+        accept=".png,.jpg,.jpeg,.webp"
+        class="block w-full text-sm text-gray-600"
+        {% if not user.logo_path %}required{% endif %}>
+      </div>
+
+      <button type="submit"
+      class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-3 rounded-lg transition">
+        Save Profile
+      </button>
+
+    </form>
+
+  </div>
+
+  <div class="flex justify-between mt-6">
+
+    {% if is_admin %}
+    <a href="{{ url_for('admin_dashboard') }}"
+    class="text-yellow-600 font-semibold hover:underline">
+      Admin Dashboard
+    </a>
+    {% endif %}
+
+    <a href="{{ url_for('dashboard') }}"
+    class="text-gray-600 hover:underline">
+      Back to Dashboard
+    </a>
+
+  </div>
+
+</div>
 {% endblock %}

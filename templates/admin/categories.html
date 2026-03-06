@@ -1,0 +1,48 @@
+{% extends "admin/base.html" %}
+{% block title %}Manage Categories{% endblock %}
+{% block admin_content %}
+<h1 class="h3 mb-4">Manage Categories</h1>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h2 class="h5 mb-3">Available Categories</h2>
+    <div class="d-flex flex-wrap gap-2">
+      {% for category in categories %}
+        <span class="badge text-bg-secondary p-2">{{ category }}</span>
+      {% else %}
+        <span class="text-muted">No categories found.</span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h2 class="h5 mb-3">Change Template Category</h2>
+    <div class="row g-3">
+      {% for template in templates %}
+        <div class="col-12">
+          <form method="post" action="{{ url_for('admin_categories') }}" class="row g-2 border rounded p-2">
+            <input type="hidden" name="template_id" value="{{ template.id }}">
+            <div class="col-12 col-md-5">
+              <input type="text" class="form-control" value="{{ template.name }} ({{ template.file_name }})" readonly>
+            </div>
+            <div class="col-12 col-md-5">
+              <select name="category" class="form-select">
+                {% for option in category_options %}
+                  <option value="{{ option }}" {% if option == template.category %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12 col-md-2">
+              <button type="submit" class="btn btn-outline-dark w-100">Save</button>
+            </div>
+          </form>
+        </div>
+      {% else %}
+        <div class="col-12 text-muted">No templates found.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

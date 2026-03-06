@@ -8,7 +8,9 @@ from services.template_config_store import TemplateConfigStore
 
 
 ALLOWED_TEMPLATE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
+ALLOWED_FONT_EXTENSIONS = {".ttf"}
 AREA_KEYS = ("x", "y", "width", "height")
+ALIGNMENT_OPTIONS = {"left", "center", "right"}
 FIELD_KEYS = (
     "todays_date",
     "price_1g",
@@ -28,6 +30,7 @@ def create_template_calibration_blueprint(
 ) -> Blueprint:
     calibration_bp = Blueprint("template_calibration", __name__)
     config_store = TemplateConfigStore(config_path)
+    fonts_dir = os.path.join(os.path.dirname(templates_dir), "fonts")
 
     def _is_allowed(filename: str) -> bool:
         extension = os.path.splitext(filename)[1].lower()
@@ -55,6 +58,78 @@ def create_template_calibration_blueprint(
 
         return True, area, None
 
+    def _list_available_fonts() -> list[str]:
+        if not os.path.isdir(fonts_dir):
+            return []
+        fonts = [
+            filename
+            for filename in os.listdir(fonts_dir)
+            if os.path.isfile(os.path.join(fonts_dir, filename))
+            and os.path.splitext(filename)[1].lower() in ALLOWED_FONT_EXTENSIONS
+        ]
+        return sorted(fonts, key=str.lower)
+
+    def _validate_styling(field_name: str, value: object) -> tuple[bool, dict[str, object] | None, str | None]:
+        if field_name == "logo_area":
+            return True, {}, None
+        if not isinstance(value, dict):
+            return False, None, f"{field_name} must be an object."
+
+        style: dict[str, object] = {}
+        font_family = value.get("font_family")
+        if isinstance(font_family, str) and font_family.strip():
+            style["font_family"] = font_family.strip()
+        else:
+            style["font_family"] = ""
+
+        raw_color = value.get("font_color")
+        if raw_color is None:
+            style["font_color"] = [255, 255, 255]
+        elif isinstance(raw_color, (list, tuple)) and len(raw_color) >= 3 and all(
+            isinstance(part, (int, float)) for part in raw_color[:3]
+        ):
+            style["font_color"] = [max(0, min(255, int(raw_color[0]))), max(0, min(255, int(raw_color[1]))), max(0, min(255, int(raw_color[2])))]
+        else:
+            return False, None, f"{field_name}.font_color must be an RGB array."
+
+        font_size_raw = value.get("font_size")
+        if isinstance(font_size_raw, (int, float)) and int(font_size_raw) > 0:
+            font_size = int(font_size_raw)
+        else:
+            max_from_payload = value.get("max_font_size", 60)
+            if isinstance(max_from_payload, (int, float)) and int(max_from_payload) > 0:
+                font_size = int(max_from_payload)
+            else:
+                font_size = 60
+
+        style["font_size"] = font_size
+
+        font_weight = str(value.get("font_weight", "700")).strip()
+        if font_weight not in {"400", "500", "600", "700", "800", "normal", "bold"}:
+            font_weight = "700"
+        style["font_weight"] = font_weight
+
+        max_font_size_raw = value.get("max_font_size", font_size)
+        min_font_size_raw = value.get("min_font_size", font_size)
+        if not isinstance(max_font_size_raw, (int, float)) or int(max_font_size_raw) <= 0:
+            return False, None, f"{field_name}.max_font_size must be a positive number."
+        if not isinstance(min_font_size_raw, (int, float)) or int(min_font_size_raw) <= 0:
+            return False, None, f"{field_name}.min_font_size must be a positive number."
+
+        max_font_size = int(max_font_size_raw)
+        min_font_size = int(min_font_size_raw)
+        if min_font_size > max_font_size:
+            min_font_size = max_font_size
+        style["max_font_size"] = max_font_size
+        style["min_font_size"] = min_font_size
+
+        alignment = str(value.get("alignment", "center")).strip().lower()
+        if alignment not in ALIGNMENT_OPTIONS:
+            return False, None, f"{field_name}.alignment must be left, center, or right."
+        style["alignment"] = alignment
+
+        return True, style, None
+
     @calibration_bp.route("/admin/template-calibration", methods=["GET"])
     @admin_required
     def calibration_page():
@@ -75,6 +150,7 @@ def create_template_calibration_blueprint(
             templates=templates,
             selected_template=selected_template,
             selected_areas=selected_areas,
+            available_fonts=_list_available_fonts(),
         )
 
     @calibration_bp.route("/admin/template-calibration/upload", methods=["POST"])
@@ -107,12 +183,19 @@ def create_template_calibration_blueprint(
         if not template_name or template_name not in templates:
             return jsonify({"error": "Invalid template name."}), 400
 
-        validated_areas: dict[str, dict[str, float]] = {}
+        validated_areas: dict[str, dict[str, object]] = {}
         for field in FIELD_KEYS:
             valid, area, error = _validate_area(field, payload.get(field))
             if not valid:
                 return jsonify({"error": error}), 400
-            validated_areas[field] = area
+            style_valid, style, style_error = _validate_styling(field, payload.get(field))
+            if not style_valid:
+                return jsonify({"error": style_error}), 400
+
+            field_data: dict[str, object] = {}
+            field_data.update(area or {})
+            field_data.update(style or {})
+            validated_areas[field] = field_data
 
         config_store.save_template_areas(template_name=template_name, areas=validated_areas)
         return jsonify({"message": "Template areas saved.", "template_name": template_name})

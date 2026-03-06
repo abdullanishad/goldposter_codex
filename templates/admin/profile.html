@@ -1,0 +1,50 @@
+{% extends "admin/base.html" %}
+{% block title %}Admin Profile{% endblock %}
+{% block admin_content %}
+<div class="container-fluid px-0">
+  <h1 class="h3 mb-4">Profile</h1>
+  <div class="row g-3">
+    <div class="col-md-4 col-12">
+      <div class="card h-100">
+        <div class="card-body text-center">
+          <div class="mx-auto mb-3 rounded-circle d-flex align-items-center justify-content-center bg-dark text-white fw-bold" style="width: 120px; height: 120px; font-size: 2rem;">
+            {{ (user.full_name or user.email or 'A')[0]|upper }}
+          </div>
+          <h4 class="mb-1">{{ user.full_name or "Admin User" }}</h4>
+          <p class="text-muted mb-2">{{ user.email or "admin@goldposter.local" }}</p>
+          <span class="badge bg-primary mb-3">Admin</span>
+          <div>
+            <button type="button" class="btn btn-outline-dark w-100">Change Password</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-8 col-12">
+      <div class="card">
+        <div class="card-body">
+          <form method="POST" action="{{ url_for('admin_profile') }}">
+            <div class="mb-3">
+              <label class="form-label">Full Name</label>
+              <input type="text" name="full_name" value="{{ user.full_name or '' }}" class="form-control form-control-lg">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Email</label>
+              <input type="email" name="email" value="{{ user.email or '' }}" class="form-control form-control-lg">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Phone</label>
+              <input type="text" name="phone" value="{{ user.phone or '' }}" class="form-control form-control-lg">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Company</label>
+              <input type="text" name="company" value="{{ user.company or '' }}" class="form-control form-control-lg">
+            </div>
+            <button type="submit" class="btn btn-dark btn-lg w-100 w-md-auto">Save Changes</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

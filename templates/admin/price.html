@@ -1,0 +1,23 @@
+{% extends "admin/base.html" %}
+{% block title %}Update Price{% endblock %}
+{% block admin_content %}
+<h1 class="h3 mb-4">Update Price</h1>
+
+<div class="card">
+  <div class="card-body">
+    <form method="post" action="{{ url_for('admin_price') }}" class="row g-3">
+      <div class="col-12 col-md-6">
+        <label class="form-label">Gold Price 1g</label>
+        <input type="number" step="0.01" min="0" name="price_1g" class="form-control form-control-lg" value="{{ admin.gold_price_1g if admin and admin.gold_price_1g is not none else '' }}" required>
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label">Gold Price 8g</label>
+        <input type="number" step="0.01" min="0" name="price_8g" class="form-control form-control-lg" value="{{ admin.gold_price_8g if admin and admin.gold_price_8g is not none else '' }}" required>
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-dark btn-lg w-100 w-md-auto">Save Prices</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

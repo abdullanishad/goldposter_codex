@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "app_base.html" %}
 {% block title %}Admin Dashboard{% endblock %}
 {% block content %}
 <h1>Admin Dashboard</h1>
@@ -11,5 +11,6 @@
 </form>
 
 <p><a href="{{ url_for('template_calibration.calibration_page') }}">Open Template Calibration Tool</a></p>
+<p><a href="{{ url_for('admin_templates') }}">Manage Template Categories</a></p>
 <p><a href="{{ url_for('dashboard') }}">Back to Dashboard</a></p>
 {% endblock %}

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Gold Poster{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+  <main class="{% block page_container_class %}max-w-3xl{% endblock %} mx-auto px-4 py-6">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="space-y-3 mb-5">
+          {% for category, message in messages %}
+            {% if category == 'success' %}
+              {% set flash_class = 'bg-emerald-50 border-emerald-200 text-emerald-800' %}
+            {% elif category == 'danger' %}
+              {% set flash_class = 'bg-rose-50 border-rose-200 text-rose-800' %}
+            {% elif category == 'warning' %}
+              {% set flash_class = 'bg-amber-50 border-amber-200 text-amber-800' %}
+            {% else %}
+              {% set flash_class = 'bg-sky-50 border-sky-200 text-sky-800' %}
+            {% endif %}
+            <div class="rounded-xl border px-4 py-3 text-sm {{ flash_class }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

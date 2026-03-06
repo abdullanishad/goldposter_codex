@@ -1,0 +1,70 @@
+{% extends "app_base.html" %}
+{% block title %}Manage Templates{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Manage Templates</h1>
+
+<section class="bg-white border border-slate-200 rounded-xl p-4 mb-6">
+  <h2 class="font-semibold mb-3">Add Template</h2>
+  <form method="POST" action="{{ url_for('admin_templates') }}" enctype="multipart/form-data" class="space-y-3">
+    <input
+      type="text"
+      name="name"
+      placeholder="Template Name"
+      class="w-full border border-slate-300 rounded-lg px-3 py-2"
+      required
+    >
+    <input
+      type="file"
+      name="template_image"
+      accept=".png,.jpg,.jpeg,.webp"
+      class="w-full border border-slate-300 rounded-lg px-3 py-2"
+      required
+    >
+    <select name="category" class="w-full border border-slate-300 rounded-lg px-3 py-2">
+      <option value="Gold">Gold</option>
+      <option value="Silver">Silver</option>
+      <option value="Offer">Offer</option>
+      <option value="Festival">Festival</option>
+      <option value="General">General</option>
+    </select>
+    <button type="submit" class="px-4 py-2 rounded-lg bg-black text-white">Save Template</button>
+  </form>
+</section>
+
+<section class="bg-white border border-slate-200 rounded-xl p-4">
+  <h2 class="font-semibold mb-3">Existing Templates</h2>
+  {% if templates %}
+    <div class="space-y-4">
+      {% for template in templates %}
+        <form method="POST" action="{{ url_for('edit_admin_template', template_id=template.id) }}" class="grid grid-cols-1 md:grid-cols-4 gap-3 items-center border border-slate-200 rounded-lg p-3">
+          <input
+            type="text"
+            name="name"
+            value="{{ template.name }}"
+            class="border border-slate-300 rounded-lg px-3 py-2"
+            required
+          >
+          <input
+            type="text"
+            value="{{ template.file_name }}"
+            class="border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 text-slate-600"
+            readonly
+          >
+          <select name="category" class="border border-slate-300 rounded-lg px-3 py-2">
+            {% for category in categories %}
+              <option value="{{ category }}" {% if template.category == category %}selected{% endif %}>{{ category }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-slate-800 text-white">Update</button>
+        </form>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-slate-600">No templates found.</p>
+  {% endif %}
+</section>
+
+<p class="mt-6">
+  <a href="{{ url_for('admin_dashboard') }}" class="text-sm underline">Back to Admin Dashboard</a>
+</p>
+{% endblock %}

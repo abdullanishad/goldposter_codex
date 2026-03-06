@@ -1,0 +1,43 @@
+{% extends "admin/base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block admin_content %}
+<h1 class="h3 mb-4">Admin Dashboard</h1>
+
+<div class="row g-3">
+  <div class="col-md-4 col-12">
+    <a href="{{ url_for('admin_price') }}" class="text-decoration-none">
+      <div class="card touch-btn">
+        <div class="card-body d-flex align-items-center">Update Price</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4 col-12">
+    <a href="{{ url_for('admin_templates') }}" class="text-decoration-none">
+      <div class="card touch-btn">
+        <div class="card-body d-flex align-items-center">Manage Templates</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4 col-12">
+    <a href="{{ url_for('admin_categories') }}" class="text-decoration-none">
+      <div class="card touch-btn">
+        <div class="card-body d-flex align-items-center">Manage Categories</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4 col-12">
+    <a href="{{ url_for('admin_settings') }}" class="text-decoration-none">
+      <div class="card touch-btn">
+        <div class="card-body d-flex align-items-center">Settings</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4 col-12">
+    <a href="{{ url_for('logout') }}" class="text-decoration-none">
+      <div class="card touch-btn">
+        <div class="card-body d-flex align-items-center">Logout</div>
+      </div>
+    </a>
+  </div>
+</div>
+{% endblock %}

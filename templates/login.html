@@ -1,11 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Login{% endblock %}
+{% block title %}Login | GoldPoster{% endblock %}
+
 {% block content %}
-<h1>Login</h1>
-<form method="post">
-  <input type="text" name="username" placeholder="Username" required />
-  <input type="password" name="password" placeholder="Password" required />
-  <button type="submit">Login</button>
+<form method="POST">
+  <label class="form-label">Email</label>
+  <input type="email" name="email" class="form-control mb-3" required>
+
+  <label class="form-label">Password</label>
+  <input type="password" name="password" class="form-control mb-3" required>
+
+  <button type="submit" class="btn btn-dark w-100 btn-auth">Login</button>
+
+  <div class="text-center mt-3">
+    <a href="{{ url_for('signup') }}" class="text-decoration-none">Create account</a>
+  </div>
 </form>
-<p>Need an account? <a href="{{ url_for('signup') }}">Sign up</a></p>
 {% endblock %}

@@ -1,77 +1,166 @@
-{% extends "base.html" %}
-{% block title %}Template Layout Editor{% endblock %}
+{% extends "app_base.html" %}
+{% block title %}Template Editor{% endblock %}
+{% block page_container_class %}max-w-7xl{% endblock %}
 {% block content %}
-<h1>Template Layout Editor</h1>
-<p>Define draggable and resizable areas for all poster fields.</p>
+<div class="space-y-6">
+  <section class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+    <h1 class="text-2xl font-bold">Template Editor</h1>
+    <p class="text-slate-600 mt-1">Drag and resize rectangles, then save coordinates.</p>
+  </section>
 
-<form method="post" action="{{ url_for('template_calibration.upload_template') }}" enctype="multipart/form-data" style="margin-bottom: 16px;">
-  <input type="file" name="template_image" accept=".png,.jpg,.jpeg" required />
-  <button type="submit">Upload Template</button>
-</form>
+  <section class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 space-y-4">
+    <form method="post" action="{{ url_for('template_calibration.upload_template') }}" enctype="multipart/form-data" class="flex flex-col sm:flex-row gap-3 sm:items-center">
+      <input type="file" name="template_image" accept=".png,.jpg,.jpeg" required class="block w-full text-sm text-slate-700 file:mr-4 file:rounded-xl file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-slate-200" />
+      <button type="submit" class="px-4 py-2 rounded-xl bg-black text-white hover:bg-slate-800 transition">Upload Template</button>
+    </form>
 
-{% if templates %}
-<form method="get" action="{{ url_for('template_calibration.calibration_page') }}" style="margin-bottom: 12px;">
-  <label for="template-select">Template:</label>
-  <select id="template-select" name="template" onchange="this.form.submit()">
-    {% for template_name in templates %}
-      <option value="{{ template_name }}" {% if template_name == selected_template %}selected{% endif %}>{{ template_name }}</option>
-    {% endfor %}
-  </select>
-</form>
+    {% if templates %}
+      <form method="get" action="{{ url_for('template_calibration.calibration_page') }}" class="flex flex-col sm:flex-row gap-3 sm:items-center">
+        <label for="template-select" class="text-sm font-medium text-slate-700">Template</label>
+        <select id="template-select" name="template" onchange="this.form.submit()" class="rounded-xl border border-slate-300 px-3 py-2">
+          {% for template_name in templates %}
+            <option value="{{ template_name }}" {% if template_name == selected_template %}selected{% endif %}>{{ template_name }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    {% endif %}
+  </section>
 
-{% if selected_template %}
-<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
-  <button type="button" data-field-btn="todays_date">Set Date Area</button>
-  <button type="button" data-field-btn="price_1g">Set 1 Gram Price Area</button>
-  <button type="button" data-field-btn="price_8g">Set 8 Gram Price Area</button>
-  <button type="button" data-field-btn="logo_area">Set Logo Area</button>
-  <button type="button" data-field-btn="address">Set Address Area</button>
-  <button type="button" data-field-btn="whatsapp_number">Set WhatsApp Area</button>
-  <button type="button" data-field-btn="social_handle">Set Social Handle Area</button>
-  <button type="button" id="toggle-grid-btn">Hide Grid</button>
-  <button type="button" id="save-template-btn">Save Template</button>
+  {% if templates and selected_template %}
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 bg-white rounded-2xl shadow-lg border border-slate-200 p-5 space-y-4">
+        <div class="flex flex-wrap gap-2 pb-4 border-b border-slate-200">
+          <button type="button" data-field-btn="todays_date" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition text-sm">Set Date Area</button>
+          <button type="button" data-field-btn="price_1g" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition text-sm">Set 1 Gram Price Area</button>
+          <button type="button" data-field-btn="price_8g" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition text-sm">Set 8 Gram Price Area</button>
+          <button type="button" data-field-btn="logo_area" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition text-sm">Set Logo Area</button>
+          <button type="button" data-field-btn="address" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition text-sm">Set Address Area</button>
+          <button type="button" data-field-btn="whatsapp_number" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition text-sm">Set WhatsApp Area</button>
+          <button type="button" data-field-btn="social_handle" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition text-sm">Set Social Handle Area</button>
+          <button type="button" id="toggleGridBtn" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition text-sm">Toggle Grid</button>
+          <button type="button" id="save-template-btn" class="px-3 py-2 rounded-xl bg-black text-white hover:bg-slate-800 transition text-sm">Save Template</button>
+        </div>
+
+        <p id="active-field" class="text-sm font-medium text-slate-700">Active field: none</p>
+        <p id="save-status" class="text-sm font-semibold min-h-5"></p>
+
+        <div class="template-container overflow-auto border border-slate-200 rounded-2xl p-2 bg-slate-50 grid-enabled">
+          <div id="editor-stage" style="position: relative; display: inline-block; line-height: 0;">
+            <img
+              id="template-image"
+              src="{{ url_for('static', filename='templates/' ~ selected_template) }}"
+              alt="Template"
+              data-template-name="{{ selected_template }}"
+              style="display: block; max-width: 100%; height: auto;"
+            />
+            <div id="box-layer" style="position: absolute; inset: 0;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-5 space-y-5">
+        <div>
+          <h3 class="text-lg font-semibold">Style Controls</h3>
+          <p class="text-sm text-slate-600">Select an area and adjust its text style.</p>
+        </div>
+
+        <div id="style-controls" class="border-t border-slate-200 pt-4 space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="font-size-input" class="block text-sm font-medium text-slate-700 mb-1">Font Size</label>
+              <input id="font-size-input" type="number" min="8" max="200" class="w-full rounded-xl border border-slate-300 px-3 py-2" />
+            </div>
+            <div>
+              <label for="font-color-input" class="block text-sm font-medium text-slate-700 mb-1">Font Color</label>
+              <input id="font-color-input" type="color" class="h-11 w-full rounded-xl border border-slate-300 p-1" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="font-weight-input" class="block text-sm font-medium text-slate-700 mb-1">Font Weight</label>
+              <select id="font-weight-input" class="w-full rounded-xl border border-slate-300 px-3 py-2">
+                <option value="400">Normal</option>
+                <option value="500">Medium</option>
+                <option value="600">Semi Bold</option>
+                <option value="700">Bold</option>
+                <option value="800">Extra Bold</option>
+              </select>
+            </div>
+            <div>
+              <label for="text-align-input" class="block text-sm font-medium text-slate-700 mb-1">Text Alignment</label>
+              <select id="text-align-input" class="w-full rounded-xl border border-slate-300 px-3 py-2">
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+          </div>
+          <p id="style-note" class="text-xs text-slate-500">Select a text field to edit style.</p>
+        </div>
+
+        <div class="border-t border-slate-200 pt-4">
+          <h4 class="font-semibold mb-2">Area Values</h4>
+          <p class="text-sm">Date: <span id="todays_date-live">not set</span></p>
+          <p class="text-sm">1g Price: <span id="price_1g-live">not set</span></p>
+          <p class="text-sm">8g Price: <span id="price_8g-live">not set</span></p>
+          <p class="text-sm">Logo: <span id="logo_area-live">not set</span></p>
+          <p class="text-sm">Address: <span id="address-live">not set</span></p>
+          <p class="text-sm">WhatsApp: <span id="whatsapp_number-live">not set</span></p>
+          <p class="text-sm">Social Handle: <span id="social_handle-live">not set</span></p>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      window.CALIBRATE_DATA = {
+        saveUrl: "{{ url_for('template_calibration.save_template_coordinates') }}",
+        selectedTemplate: {{ selected_template|tojson }},
+        existingAreas: {{ (selected_areas or {})|tojson }}
+      };
+    </script>
+    <script src="{{ url_for('static', filename='js/calibrate.js') }}"></script>
+    <style>
+      .template-container {
+        position: relative;
+      }
+
+      .template-container.grid-enabled {
+        background-image:
+          linear-gradient(to right, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+        background-size: 40px 40px;
+      }
+
+      .selected-area {
+        outline: 2px solid #3b82f6;
+        outline-offset: 1px;
+      }
+
+      .preview-text {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px;
+        text-align: center;
+        pointer-events: none;
+        line-height: 1.2;
+        white-space: normal;
+        word-break: break-word;
+      }
+    </style>
+  {% elif templates %}
+    <section class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+      <p class="text-slate-600">Select a template to start editing.</p>
+    </section>
+  {% else %}
+    <section class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+      <p class="text-slate-600">No templates found. Upload one to start calibration.</p>
+    </section>
+  {% endif %}
+
+  <p><a class="text-sm text-slate-700 hover:underline" href="{{ url_for('admin_dashboard') }}">Back to Admin Panel</a></p>
 </div>
-
-<p id="active-field" style="margin-bottom: 6px;">Active field: none</p>
-<p id="save-status" style="font-weight: 600; margin-bottom: 10px;"></p>
-
-<div style="overflow: auto; border: 1px solid #ddd; border-radius: 8px; padding: 8px;">
-  <div id="editor-stage" style="position: relative; display: inline-block; line-height: 0;">
-    <img
-      id="template-image"
-      src="{{ url_for('static', filename='templates/' ~ selected_template) }}"
-      alt="Template"
-      data-template-name="{{ selected_template }}"
-      style="display: block; max-width: 100%; height: auto;"
-    />
-    <div id="grid-overlay" style="position: absolute; inset: 0; pointer-events: none;"></div>
-    <div id="box-layer" style="position: absolute; inset: 0;"></div>
-  </div>
-</div>
-
-<div style="margin-top: 12px;">
-  <h3 style="margin: 0 0 8px 0;">Live Area Values</h3>
-  <p>Date: <span id="todays_date-live">not set</span></p>
-  <p>1g Price: <span id="price_1g-live">not set</span></p>
-  <p>8g Price: <span id="price_8g-live">not set</span></p>
-  <p>Logo: <span id="logo_area-live">not set</span></p>
-  <p>Address: <span id="address-live">not set</span></p>
-  <p>WhatsApp: <span id="whatsapp_number-live">not set</span></p>
-  <p>Social Handle: <span id="social_handle-live">not set</span></p>
-</div>
-
-<script>
-  window.CALIBRATE_DATA = {
-    saveUrl: "{{ url_for('template_calibration.save_template_coordinates') }}",
-    selectedTemplate: {{ selected_template|tojson }},
-    existingAreas: {{ (selected_areas or {})|tojson }}
-  };
-</script>
-<script src="{{ url_for('static', filename='js/calibrate.js') }}"></script>
-{% endif %}
-{% else %}
-<p>No templates found. Upload one to start calibration.</p>
-{% endif %}
-
-<p><a href="{{ url_for('admin_dashboard') }}">Back to Admin Panel</a></p>
 {% endblock %}

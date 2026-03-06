@@ -1,0 +1,9 @@
+<div class="d-grid gap-2">
+  <a class="nav-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}" href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+  <a class="nav-link {% if request.endpoint == 'admin_price' %}active{% endif %}" href="{{ url_for('admin_price') }}">Update Price</a>
+  <a class="nav-link {% if request.endpoint in ['admin_templates', 'edit_admin_template'] %}active{% endif %}" href="{{ url_for('admin_templates') }}">Templates</a>
+  <a class="nav-link {% if request.endpoint == 'admin_profile' %}active{% endif %}" href="{{ url_for('admin_profile') }}">Profile</a>
+  <a class="nav-link {% if request.endpoint == 'admin_categories' %}active{% endif %}" href="{{ url_for('admin_categories') }}">Categories</a>
+  <a class="nav-link {% if request.endpoint == 'admin_settings' %}active{% endif %}" href="{{ url_for('admin_settings') }}">Settings</a>
+  <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+</div>
