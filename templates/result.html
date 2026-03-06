@@ -5,14 +5,14 @@
   <h2 class="text-2xl font-bold">Your Poster is Ready</h2>
 
   <img
-    src="{{ url_for('static', filename='generated/' ~ generated_image) }}"
+    src="{{ generated_image_url }}"
     alt="Generated poster preview"
     class="poster-preview"
   >
 
   <div class="result-actions">
     <a
-      href="{{ url_for('download_generated_poster', filename=generated_image, download_name=download_name) }}"
+      href="{{ url_for('download_generated_poster', filename=generated_key, download_name=download_name) }}"
       class="btn-download"
     >
       Download Poster

@@ -1,14 +1,14 @@
 import os
 import logging
-from datetime import datetime
+from io import BytesIO
 from typing import Any, Optional, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
+from storage import storage
 
 SUPPORTED_EXTENSIONS: Tuple[str, ...] = (".png", ".jpg", ".jpeg", ".webp")
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 TEMPLATES_DIR = os.path.join(PROJECT_ROOT, "static", "templates")
-GENERATED_DIR = os.path.join(PROJECT_ROOT, "static", "generated")
 FONTS_DIR = os.path.join(PROJECT_ROOT, "static", "fonts")
 TEXT_FIELD_KEYS = (
     "todays_date",
@@ -48,14 +48,15 @@ def load_template(template_name: str) -> Image.Image:
     if not template_name or not str(template_name).strip():
         raise ValueError("template_name is required")
 
-    template_files = _get_template_files()
-    allowed_names = {os.path.basename(path) for path in template_files}
     selected_name = os.path.basename(str(template_name).strip())
 
-    if selected_name not in allowed_names:
-        raise FileNotFoundError(f"Template not found: {selected_name}")
-
-    return Image.open(os.path.join(TEMPLATES_DIR, selected_name))
+    try:
+        return Image.open(storage.get_file_bytes(f"templates/{selected_name}"))
+    except Exception:
+        template_path = os.path.join(TEMPLATES_DIR, selected_name)
+        if not os.path.isfile(template_path):
+            raise FileNotFoundError(f"Template not found: {selected_name}")
+        return Image.open(template_path)
 
 
 def load_font(area: dict[str, Any], size: int) -> ImageFont.ImageFont:
@@ -79,6 +80,16 @@ def _resolve_logo_path(logo_path: str) -> str:
     if os.path.isabs(logo_path):
         return logo_path
     return os.path.join(PROJECT_ROOT, logo_path)
+
+
+def _load_logo_image(logo_path: str) -> Image.Image:
+    try:
+        return Image.open(storage.get_file_bytes(logo_path)).convert("RGBA")
+    except Exception:
+        resolved_logo_path = _resolve_logo_path(logo_path)
+        if not os.path.isfile(resolved_logo_path):
+            raise FileNotFoundError(f"Logo file not found: {resolved_logo_path}")
+        return Image.open(resolved_logo_path).convert("RGBA")
 
 
 def _validate_area(name: str, area: object) -> dict[str, float]:
@@ -373,7 +384,7 @@ def generate_poster(
     whatsapp_number: str,
     social_handle: str,
     logo_path: Optional[str] = None,
-) -> str:
+) -> BytesIO:
     if not template_name or not str(template_name).strip():
         raise ValueError("template_name is required")
     if template_data is None:
@@ -427,17 +438,12 @@ def generate_poster(
     )
 
     if logo_path:
-        resolved_logo_path = _resolve_logo_path(logo_path)
-        if not os.path.isfile(resolved_logo_path):
-            raise FileNotFoundError(f"Logo file not found: {resolved_logo_path}")
-
-        logo_image = Image.open(resolved_logo_path).convert("RGBA")
+        logo_image = _load_logo_image(logo_path)
         logo_x, logo_y, logo_width, logo_height = areas["logo_area"]
         logo_image = logo_image.resize((int(logo_width), int(logo_height)), Image.Resampling.LANCZOS)
         base_image.paste(logo_image, (int(logo_x), int(logo_y)), logo_image)
 
-    os.makedirs(GENERATED_DIR, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    output_path = os.path.join(GENERATED_DIR, f"poster_{timestamp}.png")
-    base_image.save(output_path, format="PNG")
-    return output_path
+    img_io = BytesIO()
+    base_image.save(img_io, format="PNG")
+    img_io.seek(0)
+    return img_io

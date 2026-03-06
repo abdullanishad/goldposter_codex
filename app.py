@@ -1,12 +1,13 @@
+import io
+import json
 import os
 import sqlite3
-import json
 from collections import defaultdict
 from datetime import datetime
 from functools import wraps
 from uuid import uuid4
 
-from flask import Flask, abort, flash, redirect, render_template, request, send_from_directory, url_for
+from flask import Flask, abort, flash, redirect, render_template, request, url_for
 from flask_login import LoginManager, current_user, login_required, login_user, logout_user
 from sqlalchemy import inspect, text
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -16,12 +17,10 @@ from config_manager import get_template
 from models import Admin, Template, User, db
 from poster_engine import generate_poster
 from routes.template_calibration import create_template_calibration_blueprint
+from storage import storage
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_PATH = os.path.join(BASE_DIR, "users.db")
-GENERATED_DIR = os.path.join(BASE_DIR, "static", "generated")
-UPLOADS_DIR = os.path.join(BASE_DIR, "static", "uploads")
-LOGOS_DIR = os.path.join(BASE_DIR, "static", "logos")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "static", "templates")
 TEMPLATE_CONFIG_PATH = os.path.join(BASE_DIR, "template_config.json")
 ALLOWED_LOGO_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
@@ -126,17 +125,18 @@ def _save_logo(file_storage) -> str:
     if extension not in ALLOWED_LOGO_EXTENSIONS:
         raise ValueError("Logo must be a PNG, JPG, JPEG, or WEBP file.")
 
-    os.makedirs(LOGOS_DIR, exist_ok=True)
     unique_name = f"{uuid4().hex}{extension}"
-    save_path = os.path.join(LOGOS_DIR, unique_name)
-    file_storage.save(save_path)
-    return os.path.join("static", "logos", unique_name)
+    storage_key = f"logos/{unique_name}"
+    content_type = file_storage.mimetype or "application/octet-stream"
+    storage.upload_file(file_storage.stream, storage_key, content_type)
+    return storage_key
 
 
-def _bootstrap_defaults() -> None:
-    _ensure_legacy_user_columns_sqlite()
-    _ensure_legacy_template_columns_sqlite()
-    _ensure_legacy_admin_columns_sqlite()
+def _bootstrap_defaults(run_legacy_sqlite_checks: bool = True) -> None:
+    if run_legacy_sqlite_checks:
+        _ensure_legacy_user_columns_sqlite()
+        _ensure_legacy_template_columns_sqlite()
+        _ensure_legacy_admin_columns_sqlite()
     db.create_all()
     _ensure_user_profile_columns()
     db.session.execute(text("UPDATE users SET role = 'user' WHERE role IS NULL OR TRIM(role) = ''"))
@@ -348,6 +348,10 @@ def _ensure_template_rows_exist() -> None:
                 category=category,
             )
         )
+
+
+def _is_postgresql_database() -> bool:
+    return app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgresql://")
 
 
 app.register_blueprint(
@@ -773,10 +777,8 @@ def generate():
         flash("Template not found in configuration", "danger")
         return redirect(url_for("dashboard"))
 
-    os.makedirs(GENERATED_DIR, exist_ok=True)
-
     try:
-        generated_path = generate_poster(
+        generated_bytes = generate_poster(
             template_name=template_name,
             template_data=template_data,
             todays_date=format_today_uppercase(),
@@ -785,7 +787,7 @@ def generate():
             address=current_user.address,
             whatsapp_number=current_user.whatsapp_number,
             social_handle=social_handle_value(current_user.social_handle, current_user.shop_name),
-            logo_path=current_user.logo_path,
+            logo_path=storage.get_url(current_user.logo_path),
         )
     except (FileNotFoundError, ValueError) as exc:
         flash(str(exc), "danger")
@@ -794,14 +796,18 @@ def generate():
         flash("Failed to generate poster. Please try again.", "danger")
         return redirect(url_for("dashboard"))
 
-    generated_filename = os.path.basename(generated_path)
+    generated_filename = f"poster_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.png"
+    generated_key = f"generated/{generated_filename}"
+    storage.upload_file(io.BytesIO(generated_bytes), generated_key, "image/png")
+    generated_image_url = storage.get_url(generated_key)
     shop_slug = secure_filename(current_user.shop_name or current_user.username).replace("-", "_").lower() or "poster"
     download_name = f"{shop_slug}_{datetime.now().strftime('%Y%m%d')}.png"
 
     flash("Poster generated successfully.", "success")
     return render_template(
         "result.html",
-        generated_image=generated_filename,
+        generated_image_url=generated_image_url,
+        generated_key=generated_key,
         download_name=download_name,
     )
 
@@ -814,20 +820,7 @@ def social_handle_value(handle: str, shop_name: str) -> str:
 @app.route("/download/<path:filename>", methods=["GET"])
 @login_required
 def download_generated_poster(filename):
-    safe_filename = os.path.basename(filename)
-    absolute_path = os.path.join(GENERATED_DIR, safe_filename)
-    if not os.path.isfile(absolute_path):
-        flash("Generated poster file not found.", "danger")
-        return redirect(url_for("dashboard"))
-
-    requested_name = request.args.get("download_name", "").strip()
-    download_name = secure_filename(requested_name) or safe_filename
-    return send_from_directory(
-        GENERATED_DIR,
-        safe_filename,
-        as_attachment=True,
-        download_name=download_name,
-    )
+    return redirect(storage.get_url(filename))
 
 
 @app.route("/logout", methods=["POST", "GET"])
@@ -865,7 +858,7 @@ def create_admin():
 
 
 with app.app_context():
-    _bootstrap_defaults()
+    _bootstrap_defaults(run_legacy_sqlite_checks=not _is_postgresql_database())
 
 
 if __name__ == "__main__":
