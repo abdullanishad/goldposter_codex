@@ -29,6 +29,7 @@ class Admin(db.Model):
     email = db.Column(db.String(255), nullable=True)
     phone = db.Column(db.String(100), nullable=True)
     company = db.Column(db.String(255), nullable=True)
+    logo_path = db.Column(db.String(500), nullable=True)
 
 
 class Template(db.Model):

@@ -139,6 +139,7 @@ def _bootstrap_defaults(run_legacy_sqlite_checks: bool = True) -> None:
         _ensure_legacy_admin_columns_sqlite()
     db.create_all()
     _ensure_user_profile_columns()
+    _ensure_admin_profile_columns()
     db.session.execute(text("UPDATE users SET role = 'user' WHERE role IS NULL OR TRIM(role) = ''"))
 
     admin_user = User.query.filter_by(role="admin").first()
@@ -186,6 +187,8 @@ def _ensure_legacy_user_columns_sqlite() -> None:
             alter_statements.append("ALTER TABLE users ADD COLUMN whatsapp_number VARCHAR(100)")
         if "social_handle" not in existing_columns:
             alter_statements.append("ALTER TABLE users ADD COLUMN social_handle VARCHAR(255)")
+        if "logo_path" not in existing_columns:
+            alter_statements.append("ALTER TABLE users ADD COLUMN logo_path VARCHAR(500)")
         if "role" not in existing_columns:
             alter_statements.append("ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'")
 
@@ -210,8 +213,37 @@ def _ensure_user_profile_columns() -> None:
         alter_statements.append("ALTER TABLE users ADD COLUMN whatsapp_number VARCHAR(100)")
     if "social_handle" not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN social_handle VARCHAR(255)")
+    if "logo_path" not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN logo_path VARCHAR(500)")
     if "role" not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'")
+
+    if not alter_statements:
+        return
+
+    with db.engine.begin() as connection:
+        for statement in alter_statements:
+            connection.execute(text(statement))
+
+
+def _ensure_admin_profile_columns() -> None:
+    inspector = inspect(db.engine)
+    table_names = set(inspector.get_table_names())
+    if "admin" not in table_names:
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("admin")}
+    alter_statements = []
+    if "full_name" not in existing_columns:
+        alter_statements.append("ALTER TABLE admin ADD COLUMN full_name VARCHAR(150)")
+    if "email" not in existing_columns:
+        alter_statements.append("ALTER TABLE admin ADD COLUMN email VARCHAR(255)")
+    if "phone" not in existing_columns:
+        alter_statements.append("ALTER TABLE admin ADD COLUMN phone VARCHAR(100)")
+    if "company" not in existing_columns:
+        alter_statements.append("ALTER TABLE admin ADD COLUMN company VARCHAR(255)")
+    if "logo_path" not in existing_columns:
+        alter_statements.append("ALTER TABLE admin ADD COLUMN logo_path VARCHAR(500)")
 
     if not alter_statements:
         return
@@ -281,6 +313,8 @@ def _ensure_legacy_admin_columns_sqlite() -> None:
             alter_statements.append("ALTER TABLE admin ADD COLUMN phone VARCHAR(100)")
         if "company" not in existing_columns:
             alter_statements.append("ALTER TABLE admin ADD COLUMN company VARCHAR(255)")
+        if "logo_path" not in existing_columns:
+            alter_statements.append("ALTER TABLE admin ADD COLUMN logo_path VARCHAR(500)")
 
         for statement in alter_statements:
             connection.execute(statement)
